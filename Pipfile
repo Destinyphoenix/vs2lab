@@ -6,7 +6,7 @@ name = "pypi"
 [packages]
 redis = "*"
 rpyc = "*"
-zmq = "*"
+pyzmq = "*"
 ipython = "*"
 jupyter = "*"
 jupyter_server = "*"
