@@ -1,4 +1,7 @@
+
 import constRPC
+import time
+import threading
 
 from context import lab_channel
 
@@ -25,12 +28,30 @@ class Client:
     def stop(self):
         self.chan.leave('client')
 
-    def append(self, data, db_list):
+    def append(self, data, db_list, callback):
         assert isinstance(db_list, DBList)
-        msglst = (constRPC.APPEND, data, db_list)  # message payload
-        self.chan.send_to(self.server, msglst)  # send msg to server
-        msgrcv = self.chan.receive_from(self.server)  # wait for response
-        return msgrcv[1]  # pass it to caller
+
+        # Request senden
+        msglst = (constRPC.APPEND, data, db_list)
+        self.chan.send_to(self.server, msglst)
+
+        # Thread zum Warten auf das Ergebnis starten
+        def wait_for_result():
+            msgrcv = self.chan.receive_from(self.server)
+
+            # Nachrichteninhalt auswerten
+            message = msgrcv[1]
+
+            if message[0] == "RESULT":
+                callback(message[1])
+
+        thread = threading.Thread(target=wait_for_result)
+        thread.start()
+
+        # Auf ACK warten
+        msgrcv = self.chan.receive_from(self.server)
+
+        return thread
 
 
 class Server:
@@ -41,18 +62,32 @@ class Server:
 
     @staticmethod
     def append(data, db_list):
-        assert isinstance(db_list, DBList)  # - Make sure we have a list
+        assert isinstance(db_list, DBList)
         return db_list.append(data)
 
     def run(self):
         self.chan.bind(self.server)
+
         while True:
-            msgreq = self.chan.receive_from_any(self.timeout)  # wait for any request
+            msgreq = self.chan.receive_from_any(self.timeout)
+
             if msgreq is not None:
-                client = msgreq[0]  # see who is the caller
-                msgrpc = msgreq[1]  # fetch call & parameters
-                if constRPC.APPEND == msgrpc[0]:  # check what is being requested
-                    result = self.append(msgrpc[1], msgrpc[2])  # do local call
-                    self.chan.send_to({client}, result)  # return response
+                client = msgreq[0]
+                msgrpc = msgreq[1]
+
+                if constRPC.APPEND == msgrpc[0]:
+
+                    # ACK sofort zurücksenden
+                    self.chan.send_to({client}, ("ACK", None))
+
+                    # Lange Ausführungszeit simulieren
+                    time.sleep(10)
+
+                    # Funktion ausführen
+                    result = self.append(msgrpc[1], msgrpc[2])
+
+                    # Ergebnis zurücksenden
+                    self.chan.send_to({client}, ("RESULT", result))
+
                 else:
-                    pass  # unsupported request, simply ignore
+                    pass
