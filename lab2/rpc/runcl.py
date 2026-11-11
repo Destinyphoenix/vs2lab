@@ -3,14 +3,25 @@ import logging
 
 from context import lab_logging
 
+
 lab_logging.setup(stream_level=logging.INFO)
+
 
 cl = rpc.Client()
 cl.run()
 
-base_list = rpc.DBList({'foo'})
-result_list = cl.append('bar', base_list)
 
-print("Result: {}".format(result_list.value))
+t = cl.append(  'bar', 
+                rpc.DBList({'foo1'}), 
+                lambda r: print("Result: {}".format(r.value)))
+
+if t is not None:
+    while t.is_alive():
+        print("Wartet noch")
+        t.join(timeout=1)
+else:
+    print("Konnte nicht bearbeitet werden")
+    
+        
 
 cl.stop()
