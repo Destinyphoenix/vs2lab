@@ -27,11 +27,15 @@ class TestBackend(unittest.TestCase):
     """Backend-Funktion ohne Sockets."""
 
     def test_get_found(self):
-        response = clientserver.handle_request(SMALL_PHONEBOOK, {"op": "GET", "name": "Alice"})
+        response = clientserver.handle_request(
+            SMALL_PHONEBOOK, {"op": "GET", "name": "Alice"}
+        )
         self.assertEqual(response, {"status": "OK", "entries": {"Alice": "123"}})
 
     def test_get_not_found(self):
-        response = clientserver.handle_request(SMALL_PHONEBOOK, {"op": "GET", "name": "Zoe"})
+        response = clientserver.handle_request(
+            SMALL_PHONEBOOK, {"op": "GET", "name": "Zoe"}
+        )
         self.assertEqual(response, {"status": "NOT_FOUND", "name": "Zoe"})
 
     def test_getall(self):
@@ -45,8 +49,13 @@ class TestBackend(unittest.TestCase):
 
 class TestAuskunftService(unittest.TestCase):
     """Auskunft-API über echte Sockets."""
-    _server = clientserver.Server(BIG_PHONEBOOK)  # create single server in class variable
-    _server_thread = threading.Thread(target=_server.serve)  # define thread for running server
+
+    _server = clientserver.Server(
+        BIG_PHONEBOOK
+    )  # create single server in class variable
+    _server_thread = threading.Thread(
+        target=_server.serve
+    )  # define thread for running server
 
     @classmethod
     def setUpClass(cls):
@@ -90,9 +99,20 @@ class TestAuskunftService(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls._server._serving = False  # break out of server loop. pylint: disable=protected-access
+        cls._server._serving = (
+            False  # break out of server loop. pylint: disable=protected-access
+        )
         cls._server_thread.join()  # wait for server thread to terminate
 
 
-if __name__ == '__main__':
+#
+# class TestClose(unittest.TestCase):
+#     """Server.close() gibt den Port frei, auch ohne dass serve() lief."""
+#
+#     def test_close_frees_port(self):
+#         clientserver.Server().close()
+#         clientserver.Server().close()  # würde sonst mit "Address already in use" scheitern
+
+
+if __name__ == "__main__":
     unittest.main()

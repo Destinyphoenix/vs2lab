@@ -90,6 +90,7 @@ class Channel:
     def send(self, message):
         """Kodiert ein Dict als JSON + UTF-8 + Trennzeichen und sendet es."""
         data = json.dumps(message).encode("utf-8") + DELIMITER
+        print(data)
         # sendall() statt send(): send() darf weniger Bytes verschicken als
         # übergeben (bei großen Nachrichten wie GETALL mit 500 Einträgen
         # durchaus möglich). sendall() wiederholt, bis alles raus ist.
