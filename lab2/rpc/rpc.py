@@ -1,4 +1,6 @@
 import constRPC
+import threading
+import time
 
 from context import lab_channel
 
@@ -25,12 +27,19 @@ class Client:
     def stop(self):
         self.chan.leave('client')
 
-    def append(self, data, db_list):
+    def append(self, data, db_list, callback):
         assert isinstance(db_list, DBList)
         msglst = (constRPC.APPEND, data, db_list)  # message payload
         self.chan.send_to(self.server, msglst)  # send msg to server
-        msgrcv = self.chan.receive_from(self.server)  # wait for response
-        return msgrcv[1]  # pass it to caller
+        ack = self.chan.receive_from(self.server)  # wait only for the ACK
+        assert ack[1] == constRPC.OK
+        thread = threading.Thread(target=self._await_result, args=(callback,))
+        thread.start()  # result is awaited in the background
+        return thread  # caller can join() it
+
+    def _await_result(self, callback):
+        msgrcv = self.chan.receive_from(self.server)  # wait for result
+        callback(msgrcv[1])
 
 
 class Server:
@@ -52,6 +61,8 @@ class Server:
                 client = msgreq[0]  # see who is the caller
                 msgrpc = msgreq[1]  # fetch call & parameters
                 if constRPC.APPEND == msgrpc[0]:  # check what is being requested
+                    self.chan.send_to({client}, constRPC.OK)  # acknowledge at once
+                    time.sleep(10)  # simulate long-running operation
                     result = self.append(msgrpc[1], msgrpc[2])  # do local call
                     self.chan.send_to({client}, result)  # return response
                 else:
