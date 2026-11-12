@@ -1,8 +1,11 @@
+import logging
 import threading
 import time
 
 import constRPC
 from context import lab_channel
+
+logger = logging.getLogger("vs2lab.lab2.rpc.rpc")
 
 
 class DBList:
@@ -32,7 +35,7 @@ class Client:
         msglst = (constRPC.APPEND, data, db_list)  # message payload
         self.chan.send_to(self.server, msglst)  # send msg to server
         acknowledgement = self.chan.receive_from(self.server)[1]
-        print(acknowledgement)
+        logger.info("Acknowledgement: %s", acknowledgement)
         if constRPC.OK == acknowledgement:  # wait for response
             t = threading.Thread(target=self._wait_for_answer, args=(callback,))
             t.start()
