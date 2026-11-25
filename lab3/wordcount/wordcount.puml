@@ -1,0 +1,47 @@
+@startuml wordcount
+title Wordcount mit 0MQ-Pipeline (1 Splitter, 3 Mapper, 2 Reducer)
+
+|Splitter|
+start
+:Textdatei öffnen;
+floating note left
+  Prozesse laufen asynchron und unabhängig:
+  PUSH blockiert nicht, der Splitter sendet
+  alle Zeilen ohne auf Mapper/Reducer zu warten.
+  Mapper und Reducer laufen endlos
+  (Ende mit Strg+C).
+  Startreihenfolge:
+  Reducer -> Mapper -> Splitter
+end note
+while (weitere Zeile?) is (ja)
+  :Satz senden\n(PUSH bind, Port 50020, round-robin); <<output>>
+endwhile (nein)
+stop
+
+|Mapper ×3|
+start
+repeat
+  :Satz empfangen (PULL connect); <<input>>
+  :in Wörter zerlegen
+  (lowercase, Regex \w+);
+  while (weiteres Wort?) is (ja)
+    :r = crc32(wort) % 2;
+    note right
+      crc32 ist deterministisch:
+      gleiches Wort -> gleicher Reducer
+      in allen Mappern (nicht hash()!)
+    end note
+    :Wort an Reducer r senden\n(eigener PUSH-Socket je Reducer); <<output>>
+  endwhile (nein)
+repeat while (endlos)
+detach
+
+|Reducer ×2|
+start
+repeat
+  :Wort empfangen\n(PULL bind, Port 50021 / 50022); <<input>>
+  :zaehler[wort] += 1;
+  :Wort und Zählerstand ausgeben;
+repeat while (endlos)
+detach
+@enduml
