@@ -1,0 +1,7 @@
+Verteilte Systeme sind ein spannendes Thema in der Informatik.
+In einem verteilten System arbeiten mehrere Prozesse zusammen.
+ZeroMQ hilft dabei, Nachrichten schnell zwischen Prozessen zu senden.
+Der Splitter liest diesen Text und sendet die Sätze an die Mapper.
+Jeder Mapper zerlegt einen Satz in einzelne Wörter.
+Die Wörter werden dann an den richtigen Reducer gesendet.
+Am Ende zählt der Reducer alle Wörter und gibt das Ergebnis aus.
