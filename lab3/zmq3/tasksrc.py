@@ -2,10 +2,13 @@ import pickle
 import random
 import sys
 import time
+import re
 
 import zmq
 
 import constPipe
+
+text = "ZeroMQ looks like an embeddable networking library but acts like a concurrency framework. It gives you sockets that carry atomic messages across various transports like in-process, inter-process, TCP, and multicast. You can connect sockets N-to-N with patterns like fan-out, pub-sub, task distribution, and request-reply. It's fast enough to be the fabric for clustered products. Its asynchronous I/O model gives you scalable multicore applications, built as asynchronous message-processing tasks. It has a score of language APIs and runs on most operating systems. "
 
 me = str(sys.argv[1])
 
@@ -20,6 +23,8 @@ push_socket.bind(address)  # bind socket to address
 
 time.sleep(1)  # give all workers time to connect (needed for an even distribution)
 
-for i in range(100):  # generate 100 workloads
-    workload = random.randint(1, 100)  # compute workload
-    push_socket.send(pickle.dumps((me, workload)))  # send workload to worker (pickle: trusted peers only)
+
+sentences = re.split(r"[.!?]", text)
+
+for sentence in sentences:
+    push_socket.send(pickle.dumps((me, sentence)))
