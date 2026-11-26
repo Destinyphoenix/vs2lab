@@ -16,23 +16,23 @@ path = sys.argv[1] if len(sys.argv) > 1 else "text.txt"
 
 
 def start(*args):
-    return subprocess.Popen([sys.executable, "-u", *args], stdout=subprocess.PIPE, text=True)
+    return subprocess.Popen([sys.executable, "-u", *args], stderr=subprocess.PIPE, text=True)  # Logging schreibt nach stderr
 
 
 reducers = [start("reducer.py", str(r)) for r in range(2)]
 mappers = [start("mapper.py", str(m)) for m in range(1, 4)]
 time.sleep(1)  # Reducer und Mapper muessen verbunden sein, bevor der Splitter sendet
-subprocess.run([sys.executable, "splitter.py", path], check=True, stdout=subprocess.DEVNULL)
+subprocess.run([sys.executable, "splitter.py", path], check=True, stderr=subprocess.DEVNULL)
 time.sleep(1)  # letzte Nachrichten durch die Pipeline laufen lassen
 
 for p in reducers + mappers:
     p.terminate()
 
-# Ausgabe "reducer 0: wort = 3" -> letzter Stand je Wort und Reducer
+# Logzeile "... - vs2lab.lab3.wordcount.reducer.0 - INFO - wort = 3" -> letzter Stand je Wort und Reducer
 result = {}  # wort -> (reducer, anzahl)
 for r, p in enumerate(reducers):
-    for line in p.communicate()[0].splitlines():
-        m = re.fullmatch(r"reducer \d+: (\w+) = (\d+)", line)
+    for line in p.communicate()[1].splitlines():
+        m = re.search(r" - INFO - (\w+) = (\d+)$", line)
         if m:
             word, count = m.group(1), int(m.group(2))
             assert result.get(word, (r,))[0] == r, "'{}' bei mehreren Reducern gezaehlt".format(word)

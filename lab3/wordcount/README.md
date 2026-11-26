@@ -54,7 +54,21 @@ flowchart TB
 
 ## Starten
 
-IPs und Ports stehen in `constWordcount.py`. Jeder Befehl in einem eigenen Terminal:
+IPs und Ports stehen in `constWordcount.py`. Alles in einem Terminal starten:
+
+```bash
+pipenv run python run.py text.txt   # Dateipfad optional, Default: text.txt
+```
+
+`run.py` startet die Prozesse in der richtigen Reihenfolge, zeigt alle Logs
+gemeinsam an (INFO, mit Prozessname wie `vs2lab.lab3.wordcount.reducer.0`) und
+beendet alles, sobald der Text verarbeitet ist. Danach loggen die Reducer ihren
+Endstand. Das ausführliche Log (DEBUG, z. B. welches Wort an welchen Reducer geht)
+steht in `vs2lab.log`.
+
+Prüfen, ob die Zählung stimmt: `pipenv run python test_wordcount.py`
+
+Alternativ jeder Prozess in einem eigenen Terminal:
 
 ```bash
 pipenv run python reducer.py 0
