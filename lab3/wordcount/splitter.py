@@ -4,9 +4,8 @@ import logging
 import sys
 import time
 
-import zmq
-
 import constWordcount as c
+import zmq
 from context import lab_logging
 
 path = sys.argv[1] if len(sys.argv) > 1 else "text.txt"
@@ -18,12 +17,16 @@ context = zmq.Context()
 push_socket = context.socket(zmq.PUSH)
 push_socket.bind("tcp://" + c.SPLITTER_HOST + ":" + c.SPLITTER_PORT)
 
-time.sleep(1)  # give all mappers time to connect (needed for an even distribution)
+logger.info("gestartet")
 
 sent = 0
-with open(path, encoding="utf-8") as f:
-    for line in f:
-        if line.strip():
-            push_socket.send_string(line.strip())
-            sent += 1
-            logger.info("Satz %d: %s", sent, line.strip())
+try:
+    time.sleep(2)  # give all mappers time to connect (needed for an even distribution)
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                push_socket.send_string(line.strip())
+                sent += 1
+                logger.info("Satz %d: %s", sent, line.strip())
+except KeyboardInterrupt:
+    logger.info("abgebrochen nach %d Sätzen", sent)

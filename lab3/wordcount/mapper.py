@@ -3,16 +3,18 @@ per PUSH an genau einen Reducer (fest per crc32), damit gleiche Woerter beim sel
 
 import logging
 import re
+import signal
 import sys
 import zlib
 
-import zmq
-
 import constWordcount as c
+import zmq
 from context import lab_logging
 
 me = sys.argv[1]
 
+# Strg+C/SIGINT immer als KeyboardInterrupt, auch wenn es geerbt ignoriert wird (Start mit & oder nohup)
+signal.signal(signal.SIGINT, signal.default_int_handler)
 lab_logging.setup(stream_level=logging.INFO)
 logger = logging.getLogger("vs2lab.lab3.wordcount.mapper.{}".format(me))
 
@@ -26,20 +28,26 @@ for host, port in zip(c.REDUCER_HOSTS, c.REDUCER_PORTS):
     s.connect("tcp://" + host + ":" + port)
     push_sockets.append(s)
 
+logger.info("gestartet")
+
 sentences = 0
 try:
     while True:
         sentence = pull_socket.recv_string()
         sentences += 1
-        routed = []
-        for word in re.findall(r"\w+", sentence.lower()):
-            # crc32 = deterministische Pruefsumme: gleiches Wort -> gleiche Zahl in jedem Prozess.
-            # % Anzahl Reducer -> Reducer-Index, so landen gleiche Woerter von allen Mappern beim selben Reducer.
-            # Nicht hash(): wird pro Prozess zufaellig initialisiert, Mapper wuerden verschieden zuordnen.
-            r = zlib.crc32(word.encode()) % len(push_sockets)
+        # crc32 = deterministische Pruefsumme: gleiches Wort -> gleiche Zahl in jedem Prozess.
+        # % Anzahl Reducer -> Reducer-Index, so landen gleiche Woerter von allen Mappern beim selben Reducer.
+        # Nicht hash(): wird pro Prozess zufaellig initialisiert, Mapper wuerden verschieden zuordnen.
+        # toupel [word, %reducer]
+        routed = [
+            (word, zlib.crc32(word.encode()) % len(push_sockets))
+            for word in re.findall(r"\w+", sentence.lower())
+        ]
+        # erst loggen, dann senden: sonst erscheinen Reducer-Zeilen vor dem Satz, der sie ausgeloest hat
+        logger.info(
+            "%s -> %s", sentence, " ".join("{}->R{}".format(w, r) for w, r in routed)
+        )
+        for word, r in routed:
             push_sockets[r].send_string(word)
-            routed.append("{}->R{}".format(word, r))
-        # eine Zeile zeigt Empfang, Zerlegung in Woerter und feste Reducer-Zuordnung
-        logger.info("%s -> %s", sentence, " ".join(routed))
 except KeyboardInterrupt:
-    logger.info("%d Sätze verarbeitet", sentences)
+    logger.info("verarbeitete Sätze: %d", sentences)

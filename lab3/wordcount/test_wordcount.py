@@ -8,37 +8,42 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from collections import Counter
+
+import constWordcount as c
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))  # Skripte und text.txt liegen hier
 path = sys.argv[1] if len(sys.argv) > 1 else "text.txt"
 
 
-def start(*args):
-    return subprocess.Popen([sys.executable, "-u", *args], stderr=subprocess.PIPE, text=True)  # Logging schreibt nach stderr
+def start(*args, **kwargs):
+    return subprocess.Popen([sys.executable, "-u", *args], **kwargs)
 
 
-reducers = [start("reducer.py", str(r)) for r in range(2)]
-mappers = [start("mapper.py", str(m)) for m in range(1, 4)]
+# Logging schreibt nach stderr. In eine Datei statt eine Pipe: eine volle Pipe (64 KB) blockiert den Reducer.
+logs = [tempfile.TemporaryFile("w+", encoding="utf-8") for _ in c.REDUCER_PORTS]
+reducers = [start("reducer.py", str(r), stderr=logs[r]) for r in range(len(c.REDUCER_PORTS))]
+mappers = [start("mapper.py", str(m), stderr=subprocess.DEVNULL) for m in range(1, 4)]
 time.sleep(1)  # Reducer und Mapper muessen verbunden sein, bevor der Splitter sendet
 subprocess.run([sys.executable, "splitter.py", path], check=True, stderr=subprocess.DEVNULL)
 time.sleep(1)  # letzte Nachrichten durch die Pipeline laufen lassen
 
 for p in reducers + mappers:
     p.terminate()
+    p.wait()
 
 # Logzeile "... - vs2lab.lab3.wordcount.reducer.0 - INFO - wort = 3" -> letzter Stand je Wort und Reducer
 result = {}  # wort -> (reducer, anzahl)
-for r, p in enumerate(reducers):
-    for line in p.communicate()[1].splitlines():
+for r, log in enumerate(logs):
+    log.seek(0)
+    for line in log:
         m = re.search(r" - INFO - (\w+) = (\d+)$", line)
         if m:
             word, count = m.group(1), int(m.group(2))
             assert result.get(word, (r,))[0] == r, "'{}' bei mehreren Reducern gezaehlt".format(word)
             result[word] = (r, count)
-for p in mappers:
-    p.communicate()
 
 with open(path, encoding="utf-8") as f:
     expected = Counter(re.findall(r"\w+", f.read().lower()))  # gleiche Zerlegung wie im Mapper
